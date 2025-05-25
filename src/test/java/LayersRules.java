@@ -26,5 +26,14 @@ public class LayersRules {
             noClasses().that().resideInAPackage("..ui..")
                     .should().accessClassesThat().resideInAPackage("..dao..")
                     .because("UI no debe depender directamente de DAO");
-
+    @ArchTest
+    static final ArchRule dao_should_not_access_service =
+            noClasses().that().resideInAPackage("..dao..")
+                    .should().accessClassesThat().resideInAPackage("..service..")
+                    .because("DAO no debe depender de Service");
+    @ArchTest
+    static final ArchRule dao_should_not_access_ui =
+            noClasses().that().resideInAPackage("..dao..")
+                    .should().accessClassesThat().resideInAPackage("..ui..")
+                    .because("DAO no debe depender de UI");
 }

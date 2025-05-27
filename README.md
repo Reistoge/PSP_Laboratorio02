@@ -6,10 +6,11 @@ Construccion de una herramienta automatica de analisis estatico que permita veri
  * Capa de Servicios (Service): define la lógica del negocio.
  * Capa de Persistencia (DAO): se encarga del acceso a datos.
 
-## Reglas de dependencias
- * Capa de Presentación (UI): contiene controladores que interactúan con los usuarios.
- * Capa de Servicios (Service): define la lógica del negocio.
- * Capa de Persistencia (DAO): se encarga del acceso a datos.
+ ## Las reglas de dependencia son las siguientes:
+ 1. Las clases en UI sólo pueden acceder a clases en Service.
+ 2. Las clases en Service sólo pueden acceder a clases en DAO.
+ 3. No se permiten dependencias directas entre UI y DAO.
+ 4. No se permiten dependencias cruzadas entre clases dentro de una misma capa.
 
 <p align="center">
 <img width="596" alt="image" src="https://github.com/user-attachments/assets/9faa010a-21ed-466d-9e5a-80c7bcfe2abe" /> </p>
@@ -40,35 +41,91 @@ test
 └───LayersRules.java 
  
 ````
-CrossDependenciesTest: Define las reflas necesarias para que no existan dependencias cruzadas entre paquetes y clases.
-LayersRules: Define las reglas necesarias para cumplir la arquitectura en capas UI->Service->DAO
+* CrossDependenciesTest: Define las reglas necesarias para que no existan dependencias cruzadas entre paquetes y clases.
+* LayersRules: Define las reglas necesarias para cumplir la arquitectura en capas UI->Service->DAO.
+* 
+## Reglas de acceso entre capas
+Se aplicaron reglas arquitectónicas con ArchUnit para validar el cumplimiento estricto de una arquitectura en capas.
+Las reglas implementadas son las siguientes:
+UI solo puede acceder a Service (además de clases del JDK):
+````java
+classes().that().resideInAPackage("..ui..")
+        .should().onlyAccessClassesThat()
+        .resideInAnyPackage("..ui..", "..service..", "java..", "javax..");
+````
+Service solo puede acceder a DAO (además de clases del JDK):
+````java
+classes().that().resideInAPackage("..service..")
+        .should().onlyAccessClassesThat()
+        .resideInAnyPackage("..service..", "..dao..", "java..", "javax..");
+````
+UI no debe acceder directamente a DAO:
+````java
+noClasses().that().resideInAPackage("..ui..")
+        .should().accessClassesThat().resideInAPackage("..dao..");
+````
+DAO no debe acceder a Service:
+````java
+noClasses().that().resideInAPackage("..dao..")
+        .should().accessClassesThat().resideInAPackage("..service..");
+````
+DAO no debe acceder a UI:
+ ````java
+noClasses().that().resideInAPackage("..dao..")
+        .should().accessClassesThat().resideInAPackage("..ui..");
+````
+Estas reglas aseguran que:
+
+* La comunicación fluye solo en un sentido descendente (UI → Service → DAO).
+
+* No existen dependencias indebidas entre capas.
+
+* Se mantiene una separación clara de responsabilidades.
  
-## Validacion de dependencias 
 
-Se utilizo principalmente la librería ArchUnit 
+## Validación de dependencias y ciclos
+Para garantizar una correcta separación de responsabilidades y una arquitectura en capas limpia, se aplicaron reglas de validación sobre las dependencias entre capas y también dentro de cada capa individual. Esto se logró utilizando la librería ArchUnit, que permite definir y verificar reglas arquitectónicas sobre el código fuente.
 
-### Reglas de acceso entre capas:
- * Las clases de UI solo pueden acceder a clases de Service.
- * Las clases de Service solo pueden acceder a clases de DAO.
- * No se permite ningún acceso directo entre UI y DAO.
+## Validación de ciclos entre capas
+Se definió una regla general que analiza la estructura completa de los paquetes del sistema organizados bajo layers.(*)... Esta regla permite detectar ciclos de dependencia entre las tres capas principales del sistema: ui, service y dao.
+ ````java
+@ArchTest
+static final ArchRule no_cross_dependencies_in_layers =
+        slices().matching("layers.(*)..")
+                .should().beFreeOfCycles()
+                .because("No debe haber dependencias cruzadas entre capas");
+ ````
+Con esta regla se asegura que:
+* UI no dependa de DAO directamente.
+* Service no acceda a clases de UI o DAO de forma circular.
+* Cada capa respete las restricciones de acceso de la arquitectura.
 
-### Evitar dependencias cruzadas dentro de una misma capa:
-Ademas de la deteccion de ciclos entre paquete se considero detectar ciclos de dependencia entre clases de una misma capa, se aplica slices() de ArchUnit sobre los subpaquetes individuales.
-Esto permite validar que, aunque se permiten accesos dentro de una misma capa, no se generen ciclos, los cuales degradarían la mantenibilidad y claridad del diseño.
+## Validación de ciclos dentro de una misma capa
+Aunque se permite que clases dentro de una misma capa se comuniquen entre sí, no se deben formar ciclos de dependencia entre ellas. Esto es fundamental para mantener un diseño modular y fácil de mantener.
+Para lograr esta validación a nivel de clases individuales, se utilizó una estrategia particular: cada clase concreta se encapsuló dentro de su propio subpaquete. Esto permitió aplicar la función slices().matching("..capa.(*)"), haciendo que ArchUnit trate cada clase como una "slice" distinta y pueda detectar ciclos entre ellas.
 
-### Ejemplo válido:
+Por ejemplo, dentro de la capa serv ice, se estructura de la siguiente manera: 
+````java
+layers.service.auth.AuthService
+layers.service.user.UserService
 ````
-A (Service.user) → B (Service.auth)
+Y se aplica la siguiente regla:
+````java
+@ArchTest
+static final ArchRule no_cross_dependencies_in_service =
+        slices().matching("..service.(*)")
+                .should().beFreeOfCycles()
+                .because("No debe haber dependencias cruzadas dentro de Service")
 ````
-### Ejemplo inválido (ciclo):
-````
-A → B → A
-````
-## Acceso libre entre clases de capas inferiores:
+Este mismo patrón se repite para las otras capas (ui y dao)
+## Consideraciones
+* El uso de subpaquetes individuales para cada clase fue una solución específica para sortear las limitaciones técnicas de ArchUnit, sin cambiar la arquitectura real del proyecto.
+* Esta técnica permite superar una limitación de ArchUnit, que solo permite aplicar slices() sobre paquetes y no directamente sobre clases individuales dentro de un mismo paquete.
+* Esta estrategia se recomienda solo para entornos de validación y no debe mantenerse en entornos de producción.
+* La validación con ArchUnit permitió automatizar la verificación de las reglas arquitectónicas, lo que ayuda a prevenir violaciones futuras conforme el sistema evolucione.
 
-Si una capa tiene permitido acceder a otra (por ejemplo, UI puede acceder a Service), no se limita el acceso a clases específicas, a menos que el modelo lo indique explícitamente.
 
-Por lo tanto, una clase como LoginController (en UI) puede acceder a AuthService o UserService (en Service), ya que ambas están dentro de la capa permitida.
+ 
  ## Resultados del análisis de prueba.
 
  ### 1. Dependencia cruzada dentro de la capa dao con ConnectionManager

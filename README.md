@@ -1,5 +1,74 @@
 # PSP_Laboratorio02
 
+Construccion de una herramienta automatica de analisis estatico que permita verificar si un sistema Java, basada en el principio de capas, cumple con la  arquitectura planeada.
+## La arquitectura planeada se conforma de 3 capas principales
+ * Capa de Presentación (UI): contiene controladores que interactúan con los usuarios.
+ * Capa de Servicios (Service): define la lógica del negocio.
+ * Capa de Persistencia (DAO): se encarga del acceso a datos.
+
+## Reglas de dependencias
+ * Capa de Presentación (UI): contiene controladores que interactúan con los usuarios.
+ * Capa de Servicios (Service): define la lógica del negocio.
+ * Capa de Persistencia (DAO): se encarga del acceso a datos.
+
+<p align="center">
+<img width="596" alt="image" src="https://github.com/user-attachments/assets/9faa010a-21ed-466d-9e5a-80c7bcfe2abe" /> </p>
+
+# Setup y consideraciones de arquitectura
+
+Para garantizar el cumplimiento de las reglas de dependencia y mantener una arquitectura limpia y desacoplada, se han aplicado una serie de estrategias que se explican a continuación.
+
+## Estructura del Proyecto
+El código fuente se organiza bajo el paquete raíz layers, subdividido en tres capas principales:
+
+````scss
+layers
+├───ui       (capa de presentación)
+├───service  (capa de lógica de negocio)
+└───dao      (capa de acceso a datos)
+````
+Cada clase concreta está ubicada en su propio subpaquete específico dentro de su capa, por ejemplo:
+````scss
+layers.ui.login.LoginController
+layers.service.auth.AuthService
+layers.dao.user.UserRepository
+````
+Para el apartado de testing y validacion de dependencias el codigo se organiza bajo el directorio test, el cual contiene dos clases
+````scss
+test
+├───CrossDependenciesTest.java 
+└───LayersRules.java 
+ 
+````
+CrossDependenciesTest: Define las reflas necesarias para que no existan dependencias cruzadas entre paquetes y clases.
+LayersRules: Define las reglas necesarias para cumplir la arquitectura en capas UI->Service->DAO
+ 
+## Validacion de dependencias 
+
+Se utilizo principalmente la librería ArchUnit 
+
+### Reglas de acceso entre capas:
+ * Las clases de UI solo pueden acceder a clases de Service.
+ * Las clases de Service solo pueden acceder a clases de DAO.
+ * No se permite ningún acceso directo entre UI y DAO.
+
+### Evitar dependencias cruzadas dentro de una misma capa:
+Ademas de la deteccion de ciclos entre paquete se considero detectar ciclos de dependencia entre clases de una misma capa, se aplica slices() de ArchUnit sobre los subpaquetes individuales.
+Esto permite validar que, aunque se permiten accesos dentro de una misma capa, no se generen ciclos, los cuales degradarían la mantenibilidad y claridad del diseño.
+
+### Ejemplo válido:
+````
+A (Service.user) → B (Service.auth)
+````
+### Ejemplo inválido (ciclo):
+````
+A → B → A
+````
+## Acceso libre entre clases de capas inferiores:
+
+Si una capa tiene permitido acceder a otra (por ejemplo, UI puede acceder a Service), no se limita el acceso a clases específicas, a menos que el modelo lo indique explícitamente.
+
+Por lo tanto, una clase como LoginController (en UI) puede acceder a AuthService o UserService (en Service), ya que ambas están dentro de la capa permitida.
  ## Resultados del análisis de prueba.
 
  ### 1. Dependencia cruzada dentro de la capa dao con ConnectionManager

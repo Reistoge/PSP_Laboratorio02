@@ -4,6 +4,7 @@ import com.tngtech.archunit.lang.ArchRule;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 @AnalyzeClasses(packages = "layers")
 public class LayersRules {
@@ -36,4 +37,10 @@ public class LayersRules {
             noClasses().that().resideInAPackage("..dao..")
                     .should().accessClassesThat().resideInAPackage("..ui..")
                     .because("DAO no debe depender de UI");
+
+    @ArchTest
+    static final ArchRule no_cross_dependencies_in_layers =
+            slices().matching("layers.(*)..")
+                    .should().beFreeOfCycles()
+                    .because("No debe haber dependencias cruzadas entre capas");
 }

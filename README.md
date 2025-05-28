@@ -1,6 +1,7 @@
+
 # PSP_Laboratorio02
 
-Construccion de una herramienta automatica de analisis estatico que permita verificar si un sistema Java, basada en el principio de capas, cumple con la  arquitectura planeada.
+Construcción de una herramienta automática de análisis estático que permita verificar si un sistema Java, basada en el principio de capas, cumple con la  arquitectura planeada.
 ## La arquitectura planeada se conforma de 3 capas principales
  * Capa de Presentación (UI): contiene controladores que interactúan con los usuarios.
  * Capa de Servicios (Service): define la lógica del negocio.
@@ -42,18 +43,22 @@ test
  
 ````
 * CrossDependenciesTest: Define las reglas necesarias para que no existan dependencias cruzadas entre paquetes y clases.
-* LayersRules: Define las reglas necesarias para cumplir la arquitectura en capas UI->Service->DAO.
-* 
-## Reglas de acceso entre capas
+* LayersRules: Define las reglas necesarias para cumplir la arquitectura en capas UI → Service → DAO.
+
+## Validación de dependencias y ciclos
+Para garantizar una correcta separación de responsabilidades y una arquitectura en capas limpia, se aplicaron reglas de validación sobre las dependencias entre capas y también dentro de cada capa individual. Esto se logró utilizando la librería ArchUnit, que permite definir y verificar reglas arquitectónicas sobre el código fuente.
+
+### Reglas de acceso entre capas
 Se aplicaron reglas arquitectónicas con ArchUnit para validar el cumplimiento estricto de una arquitectura en capas.
 Las reglas implementadas son las siguientes:
-UI solo puede acceder a Service (además de clases del JDK):
+
+UI solo puede acceder a si mismo y a Service (además de clases del JDK):
 ````java
 classes().that().resideInAPackage("..ui..")
         .should().onlyAccessClassesThat()
         .resideInAnyPackage("..ui..", "..service..", "java..", "javax..");
 ````
-Service solo puede acceder a DAO (además de clases del JDK):
+Service solo puede acceder a si mismo y a DAO (además de clases del JDK):
 ````java
 classes().that().resideInAPackage("..service..")
         .should().onlyAccessClassesThat()
@@ -78,16 +83,12 @@ Estas reglas aseguran que:
 
 * La comunicación fluye solo en un sentido descendente (UI → Service → DAO).
 
-* No existen dependencias indebidas entre capas.
+* No existen dependencias indebidas entre capas (UI ← Service ← DAO, UI ← DAO o UI → DAO).
 
 * Se mantiene una separación clara de responsabilidades.
- 
 
-## Validación de dependencias y ciclos
-Para garantizar una correcta separación de responsabilidades y una arquitectura en capas limpia, se aplicaron reglas de validación sobre las dependencias entre capas y también dentro de cada capa individual. Esto se logró utilizando la librería ArchUnit, que permite definir y verificar reglas arquitectónicas sobre el código fuente.
-
-## Validación de ciclos entre capas
-Se definió una regla general que analiza la estructura completa de los paquetes del sistema organizados bajo layers.(*)... Esta regla permite detectar ciclos de dependencia entre las tres capas principales del sistema: ui, service y dao.
+### Validación de ciclos entre capas
+Se definió una regla general que analiza la estructura completa de los paquetes del sistema organizados bajo layers.(*)... Esta regla permite detectar ciclos de dependencia entre las tres capas del sistema: ui, service y dao.
  ````java
 @ArchTest
 static final ArchRule no_cross_dependencies_in_layers =
@@ -100,7 +101,9 @@ Con esta regla se asegura que:
 * Service no acceda a clases de UI o DAO de forma circular.
 * Cada capa respete las restricciones de acceso de la arquitectura.
 
-## Validación de ciclos dentro de una misma capa
+Esta regla técnicamente es redudante, pues las reglas de acceso entre capas dectectarían estas dependencias no permitidas. Sin embargo, es bueno como un paso de verificación doble.
+
+### Validación de ciclos dentro de una misma capa
 Aunque se permite que clases dentro de una misma capa se comuniquen entre sí, no se deben formar ciclos de dependencia entre ellas. Esto es fundamental para mantener un diseño modular y fácil de mantener.
 Para lograr esta validación a nivel de clases individuales, se utilizó una estrategia particular: cada clase concreta se encapsuló dentro de su propio subpaquete. Esto permitió aplicar la función slices().matching("..capa.(*)"), haciendo que ArchUnit trate cada clase como una "slice" distinta y pueda detectar ciclos entre ellas.
 
@@ -376,4 +379,3 @@ Cycle detected: Slice login ->
     - Field <layers.ui.user.UserView.loginController> has type <layers.ui.login.LoginController> in (UserView.java:0)
     - Constructor <layers.ui.user.UserView.<init>()> calls constructor <layers.ui.login.LoginController.<init>()> in (UserView.java:8)
 ````
-

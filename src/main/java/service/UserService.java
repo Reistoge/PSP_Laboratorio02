@@ -1,9 +1,11 @@
-package layers.service.user;
+package service;
+
+import dao.UserRepository;
 
 public class UserService {
-    private final layers.dao.user.UserRepository repository = new layers.dao.user.UserRepository();
+    private final UserRepository repository = new UserRepository();
     // 6. uso de la capa ui desde la capa service -> violacion de arquitectura en capas
-    //layers.ui.login.LoginController loginController = new layers.ui.login.LoginController();
+    // LoginController loginController = new LoginController();
     public void registerUser(String name) {
         repository.save(name);
     }

@@ -7,7 +7,7 @@ public class UserView {
     //dao.ConnectionManager connection = new dao.ConnectionManager();
     //3. Dependencia cruzada dentro de la capa ui accediendo a la clase MainController
     // UserView -> MainController-> LoginController -> UserView
-    ui.MainController mainController = new ui.MainController();
+    //ui.MainController mainController = new ui.MainController();
     public void showUser(String name) {
         service.getUserInfo(name);
     }
